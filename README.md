@@ -33,7 +33,31 @@ python -m fhirlearn.search             # step 4
 python -m fhirlearn.labs               # step 5
 python -m fhirlearn.compare            # step 6 -> article_assets/comparison.md
 python -m fhirlearn.weird              # step 7 (HAPI only)
+python -m fhirlearn.report             # interactive page -> article_assets/report.html (from cache only)
 ```
+
+`article_assets/report.html` is a single self-contained page with all the results embedded: every request, the Bundle structure, charts and the weird records. Open it in a browser; no Python needed.
+
+### The report and results are a snapshot
+
+`report.html`, `comparison.md`, `weird.md` and the tables below show what the servers returned on **2026-11-10**. They don't update themselves, and both servers are public sandboxes whose data changes (HAPI seems to be wiped and reloaded from time to time). The page says this near the top and shows the fetch date.
+
+To refresh everything:
+
+```bash
+rm -rf cache/hapi cache/smart        # throw away the old responses
+python -m fhirlearn.capability       # re-fetch /metadata
+python -m fhirlearn.compare          # re-fetch steps 3-5, rewrites comparison.md
+python -m fhirlearn.weird            # re-run the weirdness probes
+python -m fhirlearn.report           # rebuild report.html from the new cache
+```
+
+Some parts won't update on their own:
+
+- The five weird records are picked by hand in `report.py`. If one has been deleted from HAPI, the report build stops with an error.
+- The weirdness probes compare birth dates against the fixed date 2026-11-10.
+- The outage timeline and some captions in the report describe this one session.
+- `weird.md` and the results tables in this README are written by hand. Update them yourself.
 
 Skip a server that is down:
 

@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What the FHIR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column with a sticky section bar; each section pairs a short explanation with the real data it describes. */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --sunken: #eceef2;
+  --ink: #14161b;
+  --ink-2: #4c5260;
+  --ink-3: #6f7583;
+  --line: #dcdfe6;
+  --accent: #5040c4;
+  --accent-soft: #ebe8fb;
+  --smart: #2a78d6;
+  --hapi: #eb6834;
+  --critical: #d03b3b;
+  --good: #0a7d0a;
+  --code-key: #5040c4;
+  --code-str: #1d6b48;
+  --code-num: #b04a17;
+  --hl: #fff2c2;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --surface: #191b21; --sunken: #20232a; --ink: #eceef2; --ink-2: #b4b9c4; --ink-3: #8d93a0;
+    --line: #2d3039; --accent: #9d93ee; --accent-soft: #2a2550; --smart: #3987e5; --hapi: #d95926;
+    --critical: #e66767; --good: #3fbf3f; --code-key: #b3a9ff; --code-str: #7fd3a8; --code-num: #f0a070; --hl: #4a3f12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #191b21; --sunken: #20232a; --ink: #eceef2; --ink-2: #b4b9c4; --ink-3: #8d93a0;
+  --line: #2d3039; --accent: #9d93ee; --accent-soft: #2a2550; --smart: #3987e5; --hapi: #d95926;
+  --critical: #e66767; --good: #3fbf3f; --code-key: #b3a9ff; --code-str: #7fd3a8; --code-num: #f0a070; --hl: #4a3f12;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+:not(pre) > code { background: var(--sunken); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2.4rem, 6vw, 3.6rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.1rem; font-weight: 500; }
+p { margin: 0; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+
+.wrap {
+  max-width: 920px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.prose { max-width: 66ch; display: grid; gap: 0.9rem; color: var(--ink-2); }
+.prose strong { color: var(--ink); font-weight: 600; }
+
+/* sticky section bar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.bar nav { display: flex; gap: 4px; overflow-x: auto; padding-block: 8px; scrollbar-width: none; }
+.bar nav::-webkit-scrollbar { display: none; }
+.bar a { flex: none; text-decoration: none; color: var(--ink-2); font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; }
+.bar a:hover, .bar a.on { background: var(--accent-soft); color: var(--ink); }
+
+header.hero { padding-block: 56px 32px; display: grid; gap: 18px; }
+.hero .lede { font-size: 1.15rem; color: var(--ink-2); max-width: 60ch; }
+.verb { display: inline-block; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; padding: 1px 6px; border-radius: 4px; background: var(--good); color: #fff; vertical-align: 0.1em; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.9rem; color: var(--ink-3); }
+
+section { padding-block: 44px; border-top: 1px solid var(--line); display: grid; gap: 22px; }
+section > .head { display: grid; gap: 8px; }
+
+/* server identity */
+.srv { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem; white-space: nowrap; }
+.srv::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.srv.smart { --c: var(--smart); }
+.srv.hapi { --c: var(--hapi); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.scroll-x { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.78rem; font-weight: 600; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
+td.num, th.num { text-align: right; }
+tr:last-child td { border-bottom: 0; }
+.compare td.num { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; }
+.capped { color: var(--ink-3); font-size: 0.8rem; font-family: var(--font-body); font-weight: 400; margin-left: 2px; }
+.footnote { font-size: 0.85rem; color: var(--ink-3); max-width: 70ch; }
+
+/* segmented controls */
+.seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--sunken); border-radius: 8px; flex-wrap: wrap; }
+.seg button { font: inherit; font-size: 0.85rem; border: 0; background: transparent; color: var(--ink-2); padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); font-weight: 600; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+
+/* request log */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.stat { display: grid; gap: 2px; }
+.stat b { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 0.82rem; color: var(--ink-3); }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 20px; padding: 0; margin: 0; list-style: none; font-size: 0.92rem; color: var(--ink-2); }
+.rules li { display: grid; gap: 2px; }
+.rules b { color: var(--ink); font-family: var(--font-mono); font-size: 0.85rem; font-weight: 500; }
+.log { max-height: 440px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.req { display: grid; grid-template-columns: 2.4rem 4.6rem 4.6rem minmax(0, 1fr); gap: 4px 10px; align-items: baseline; padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 0.88rem; }
+.req:hover { background: var(--sunken); }
+.req .n, .req .t { color: var(--ink-3); font-family: var(--font-mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.req .p { font-family: var(--font-mono); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.req .res { grid-column: 4; color: var(--ink-3); font-size: 0.8rem; }
+.req .detail { grid-column: 1 / -1; font-size: 0.8rem; color: var(--ink-2); background: var(--sunken); border-radius: 6px; padding: 8px 10px; display: grid; gap: 4px; }
+.req .detail code { background: none; padding: 0; word-break: break-all; }
+@media (max-width: 560px) {
+  .req { grid-template-columns: 2rem 4.4rem minmax(0, 1fr); }
+  .req .t { display: none; }
+  .req .res { grid-column: 3; }
+}
+
+/* capability chips */
+.cards2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 0.92rem; margin-top: 10px; }
+.kv dt { color: var(--ink-3); }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+.chipgroups { display: grid; gap: 16px; }
+.chipgroup h3 { font-family: var(--font-body); font-size: 0.85rem; font-weight: 600; color: var(--ink-2); margin-bottom: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--font-mono); font-size: 0.78rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }
+.chip.only { border-color: var(--c); color: var(--ink); }
+.chip.key { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
+
+/* json */
+.split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+pre.json { margin: 0; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.55; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 0; max-height: 460px; overflow: auto; }
+pre.json .ln { display: block; padding: 0 14px; white-space: pre; border-left: 3px solid transparent; }
+pre.json .ln.hl { background: var(--hl); border-left-color: var(--accent); }
+.k { color: var(--code-key); } .s { color: var(--code-str); } .nmb { color: var(--code-num); }
+.notes { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.notes button { all: unset; box-sizing: border-box; display: grid; gap: 2px; width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 0.9rem; color: var(--ink-2); }
+.notes button:hover, .notes button[aria-pressed="true"] { border-color: var(--accent); }
+.notes button[aria-pressed="true"] { background: var(--accent-soft); }
+.notes b { color: var(--ink); font-family: var(--font-mono); font-size: 0.82rem; font-weight: 500; }
+
+/* charts */
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--ink-2); font-family: var(--font-body); font-size: 11px; }
+.chart .axis { stroke: var(--line); }
+.chart .grid { stroke: var(--line); stroke-dasharray: 2 3; }
+.chart .lbl { fill: var(--ink); font-size: 12px; }
+.chart .val { fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+.chart .hit { fill: transparent; }
+.chart .thr { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.charthead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 0.8rem; padding: 6px 9px; border-radius: 6px; max-width: 260px; line-height: 1.35; }
+
+.slider { display: grid; gap: 6px; }
+.slider label { font-size: 0.9rem; color: var(--ink-2); }
+.slider input { width: 100%; accent-color: var(--accent); }
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.readout { display: grid; gap: 2px; }
+.readout b { font-family: var(--font-display); font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.readout span { font-size: 0.85rem; color: var(--ink-3); }
+
+/* weird */
+.weird { display: grid; gap: 14px; counter-reset: w; }
+.wcard { display: grid; gap: 8px; }
+.wcard .top { display: flex; gap: 10px 14px; align-items: baseline; flex-wrap: wrap; }
+.wcard .rank { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.wcard h3 { font-size: 1.2rem; font-weight: 700; }
+.wcard .why { color: var(--ink-2); max-width: 66ch; }
+.wcard .found { font-size: 0.82rem; color: var(--ink-3); }
+details summary { cursor: pointer; font-size: 0.88rem; color: var(--accent); width: fit-content; }
+details[open] summary { margin-bottom: 8px; }
+ul.plain { margin: 0; padding-left: 1.1rem; display: grid; gap: 6px; color: var(--ink-2); max-width: 68ch; }
+ul.plain strong { color: var(--ink); }
+
+/* outage timeline */
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.timeline li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr); gap: 12px; padding-bottom: 14px; position: relative; }
+.timeline li::before { content: ""; position: absolute; left: calc(0.8rem - 1px); top: 1.4rem; bottom: 0; width: 2px; background: var(--line); }
+.timeline li:last-child::before { display: none; }
+.dot { width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; font-weight: 700; color: #fff; }
+.dot.fail { background: var(--critical); }
+.dot.ok { background: var(--good); }
+.timeline .what { color: var(--ink-2); font-size: 0.95rem; }
+.timeline .what strong { color: var(--ink); }
+
+.snapshot { background: var(--accent-soft); border-color: transparent; font-size: 0.92rem; color: var(--ink-2); max-width: 72ch; }
+.snapshot strong { color: var(--ink); }
+footer { padding-block: 32px 56px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 0.85rem; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+html { scroll-behavior: smooth; scroll-padding-top: 56px; }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="wrap">
+    <nav aria-label="Sections">
+      <a href="#summary">Summary</a>
+      <a href="#requests">Requests</a>
+      <a href="#metadata">/metadata</a>
+      <a href="#bundle">Bundle</a>
+      <a href="#patients">Patients</a>
+      <a href="#codes">Diabetes</a>
+      <a href="#hba1c">HbA1c</a>
+      <a href="#weird">Weird data</a>
+      <a href="#outage">Outage</a>
+      <a href="#limits">Limits</a>
+    </nav>
+  </div>
+</div>
+
+<main class="wrap">
+  <header class="hero" id="summary">
+    <p class="eyebrow">FHIR R4 · read-only · no client library</p>
+    <h1>What the FHIR</h1>
+    <p class="lede">I sent <span id="h-total">74</span> plain <span class="verb">GET</span> requests to two public FHIR test servers and read the raw JSON that came back. This page shows what they returned, built entirely from those cached responses.</p>
+    <div class="meta-row">
+      <span class="srv smart">SMART</span><a href="https://r4.smarthealthit.org">r4.smarthealthit.org</a>
+      <span class="srv hapi">HAPI</span><a href="https://hapi.fhir.org/baseR4">hapi.fhir.org/baseR4</a>
+      <span id="h-date"></span>
+    </div>
+    <div class="panel scroll-x">
+      <table class="compare" id="compare"></table>
+    </div>
+    <p class="footnote">Counts are from what we fetched, not server totals. <span class="capped">*</span> means the search hit our 20-page cap, so more results exist. Each row is its own search, so rows are not subsets of one another.</p>
+    <div class="panel snapshot" role="note">
+      <strong>This page is a snapshot.</strong> It shows what the two servers returned on <span id="snap-date"></span> and never contacts them again. Both are public test servers whose data changes, so today's numbers, records and IDs may differ. See <a href="#limits">Limitations</a> for how to rebuild it.
+    </div>
+  </header>
+
+  <section id="requests">
+    <div class="head">
+      <p class="eyebrow">How we asked</p>
+      <h2>Every request, in order</h2>
+    </div>
+    <div class="prose">
+      <p>FHIR is a REST API. A search is a URL: the path names a resource type such as <code>Patient</code>, and the query string holds search parameters. Public test servers are shared, so every request followed the same rules.</p>
+    </div>
+    <ul class="rules">
+      <li><b>GET only</b>Nothing was created, changed or deleted.</li>
+      <li><b>_count=50</b>Small pages of 50 results.</li>
+      <li><b>20 pages max</b>A hard cap per search, at most 1,000 results.</li>
+      <li><b>1 s sleep · 30 s timeout</b>A pause before every request.</li>
+      <li><b>cache/</b>Every response saved, so reruns never hit the server.</li>
+    </ul>
+    <div class="stats" id="req-stats"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Filter requests by server" id="req-filter"></div>
+      <span class="footnote">Click a request to see its full URL.</span>
+    </div>
+    <div class="log" id="log" role="list"></div>
+  </section>
+
+  <section id="metadata">
+    <div class="head">
+      <p class="eyebrow">GET /metadata</p>
+      <h2>Ask the server what it can do</h2>
+    </div>
+    <div class="prose">
+      <p>Every FHIR server describes itself in a <strong>CapabilityStatement</strong>: the FHIR version it speaks, the resource types it holds, and the <strong>search parameters</strong> it accepts for each one. Search parameters are the names you may put in a query string. They are not the same as the fields in the JSON.</p>
+    </div>
+    <div class="cards2" id="cap-cards"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Resource type" id="cap-type"></div>
+    </div>
+    <div class="panel chipgroups" id="cap-chips"></div>
+  </section>
+
+  <section id="bundle">
+    <div class="head">
+      <p class="eyebrow">GET /Patient?_count=50</p>
+      <h2>Anatomy of a Bundle</h2>
+    </div>
+    <div class="prose">
+      <p>A search never returns a bare list. It returns a <strong>Bundle</strong>: a wrapper holding one page of results plus links to other pages. Below is the real first page from each server, trimmed to two of its 50 entries. Pick a note to highlight that part.</p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Server" id="bundle-srv"></div>
+    </div>
+    <div class="split">
+      <pre class="json" id="bundle-json" tabindex="0" aria-label="Bundle JSON"></pre>
+      <ul class="notes" id="bundle-notes"></ul>
+    </div>
+  </section>
+
+  <section id="patients">
+    <div class="head">
+      <p class="eyebrow">Patient</p>
+      <h2>Fifty patients from each server</h2>
+    </div>
+    <div class="prose">
+      <p>Almost every Patient field is optional. The chart shows how many of the 50 sampled patients carry each top-level field. SMART's patients come from Synthea, a simulator, and look identical in shape. HAPI's were written by many different people and tools.</p>
+    </div>
+    <div class="cards2">
+      <div class="panel chart" id="fields-smart"></div>
+      <div class="panel chart" id="fields-hapi"></div>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Server" id="pt-srv"></div>
+      <div class="seg" role="group" aria-label="Rows" id="pt-gaps"></div>
+    </div>
+    <div class="panel scroll-x" style="max-height: 380px; overflow-y: auto; padding: 0;">
+      <table id="pt-table"></table>
+    </div>
+  </section>
+
+  <section id="codes">
+    <div class="head">
+      <p class="eyebrow">GET /Condition?code=http://snomed.info/sct|44054006</p>
+      <h2>Search by code, never by label</h2>
+    </div>
+    <div class="prose">
+      <p>A token search has the form <code>system|code</code>. The system says which code system you mean (here SNOMED CT) and the code is the concept: <code>44054006</code>, type 2 diabetes. Each coding also carries a <code>display</code> text for humans. The chart counts the display strings that came back with this one code.</p>
+    </div>
+    <div class="cards2" id="dm-stats"></div>
+    <div class="cards2">
+      <div class="panel chart" id="disp-smart"></div>
+      <div class="panel chart" id="disp-hapi"></div>
+    </div>
+    <p class="footnote" id="dm-systems"></p>
+  </section>
+
+  <section id="hba1c">
+    <div class="head">
+      <p class="eyebrow">GET /Observation?code=http://loinc.org|4548-4</p>
+      <h2>HbA1c, and where to draw the line</h2>
+    </div>
+    <div class="prose">
+      <p>HbA1c measures average blood sugar over about three months, as the percentage of hemoglobin with sugar attached. <strong>6.5% or higher</strong> is the usual diagnostic threshold for diabetes. Readings arrive as a <code>valueQuantity</code>: a number plus a unit. Move the threshold to see how many patients cross it.</p>
+    </div>
+    <div class="panel slider">
+      <label for="thr">Threshold: <strong id="thr-out">6.5%</strong></label>
+      <input type="range" id="thr" min="4" max="10" step="0.1" value="6.5">
+      <div class="readouts" id="readouts"></div>
+    </div>
+    <div class="panel chart" id="hist"></div>
+    <div class="prose">
+      <p>The same unit can be written several ways. <code>unit</code> is a free-text label for people. <code>system</code> and <code>code</code> are the machine-readable UCUM version, and uploaders fill in either, both or neither.</p>
+    </div>
+    <div class="cards2" id="units"></div>
+    <details class="panel">
+      <summary id="excl-sum">Readings we excluded</summary>
+      <div class="scroll-x"><table id="excl"></table></div>
+    </details>
+  </section>
+
+  <section id="weird">
+    <div class="head">
+      <p class="eyebrow">HAPI, the public sandbox</p>
+      <h2>Five records that should not exist</h2>
+    </div>
+    <div class="prose">
+      <p>HAPI lets anyone write to it, so its data includes test scripts, typos and jokes. The server can find odd records for you: <code>:missing=true</code> finds resources without a field, and prefixes like <code>gt</code> and <code>lt</code> compare dates.</p>
+    </div>
+    <div class="weird" id="weird-list"></div>
+    <div class="panel">
+      <h3 style="margin-bottom: 10px;">The weird thing that wasn't</h3>
+      <p class="why" style="color: var(--ink-2); max-width: 66ch;">I expected references to patients that don't exist. I looked up 1,000 of the 1,031 patients referenced by diabetes Conditions and HbA1c Observations, 50 at a time with <code>Patient?_id=a,b,c…</code>, and every one of them exists. HAPI rejects a write that points to a missing patient. It does not reject a missing required field or an impossible date, so it checks the links between records but not what is inside them.</p>
+    </div>
+  </section>
+
+  <section id="outage">
+    <div class="head">
+      <p class="eyebrow">r4.smarthealthit.org</p>
+      <h2>When a server doesn't answer</h2>
+    </div>
+    <div class="prose">
+      <p>For most of the session SMART accepted the connection, completed TLS, and then sent nothing at all. The project kept going on HAPI alone, and the SMART numbers arrived once it recovered.</p>
+    </div>
+    <ol class="timeline" id="timeline"></ol>
+    <div class="prose">
+      <p><strong>What this changed in the code.</strong> One server failing no longer stops the run, failed requests are never cached, and <code>FHIRLEARN_SERVERS=hapi</code> skips a server that is down.</p>
+    </div>
+  </section>
+
+  <section id="limits">
+    <div class="head">
+      <p class="eyebrow">Read before quoting a number</p>
+      <h2>Limitations</h2>
+    </div>
+    <ul class="plain">
+      <li><strong>A snapshot, not a live view.</strong> Everything here was fetched on <span id="snap-date-2"></span> and is embedded in the page. To refresh it, delete <code>cache/</code>, rerun the step modules (<code>capability</code>, <code>compare</code>, <code>weird</code>) and then <code>python -m fhirlearn.report</code>. Some parts will not update on their own: the five weird records are picked by hand and the build stops if one has been deleted, the weirdness probes compare birth dates against 2026-11-10, and the outage timeline and some captions describe this one session.</li>
+      <li><strong>Test data.</strong> Both servers hold synthetic or demo records. Nothing here describes real patients or real prevalence.</li>
+      <li><strong>Samples, not totals.</strong> Neither server returned <code>Bundle.total</code>, and the 20-page cap stops a search at 1,000 results.</li>
+      <li><strong>The data moves.</strong> HAPI appears to be wiped and reloaded from time to time, and people write to it constantly. A fresh run will give different numbers.</li>
+      <li><strong>One code per concept.</strong> Diabetes is matched only on SNOMED 44054006 and HbA1c only on LOINC 4548-4. Records coded only in ICD-10, with other HbA1c codes, or only in free text are missed.</li>
+      <li><strong>Simple cleaning.</strong> <code>%</code> and <code>percent</code> are accepted, mmol/mol is converted with % = 0.09148 × mmol/mol + 2.152, and % values outside 3 to 20 are excluded rather than corrected.</li>
+      <li><strong>"Patients sampled" is one page.</strong> It is the first 50 patients each server returned, not a random sample.</li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p id="foot"></p>
+  </div>
+</footer>
+
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const DATA = /*__REPORT_DATA__*/null;
+const S = DATA.servers;
+const NAMES = ["smart", "hapi"];
+const LABEL = { smart: "SMART", hapi: "HAPI" };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = (n) => Number(n).toLocaleString("en-US");
+const srv = (n) => `<span class="srv ${n}">${LABEL[n]}</span>`;
+const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------- tooltip ---------- */
+const tip = $("tip");
+document.addEventListener("pointermove", (e) => {
+  const t = e.target.closest?.("[data-tip]");
+  if (!t) { tip.hidden = true; return; }
+  tip.textContent = t.getAttribute("data-tip");
+  tip.hidden = false;
+  const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+  const y = e.clientY - tip.offsetHeight - 12 < 8 ? e.clientY + 16 : e.clientY - tip.offsetHeight - 12;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+});
+document.addEventListener("pointerleave", () => (tip.hidden = true));
+
+/* ---------- segmented control helper ---------- */
+function seg(el, options, value, onChange) {
+  el.innerHTML = options.map(([v, label]) => `<button type="button" data-v="${v}" aria-pressed="${v === value}">${label}</button>`).join("");
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    el.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    onChange(b.dataset.v);
+  });
+}
+
+/* ---------- header + comparison ---------- */
+$("h-total").textContent = DATA.requests.length;
+$("h-date").textContent = "Fetched " + DATA.fetched;
+$("snap-date").textContent = DATA.fetched;
+$("snap-date-2").textContent = DATA.fetched;
+(function compare() {
+  const star = (c) => (c ? '<span class="capped">*</span>' : "");
+  const rows = [
+    ["FHIR version", (n) => `<span class="mono" style="font-size:.95rem;font-weight:500">${esc(S[n].capability.fhirVersion)}</span>`],
+    ["Patients sampled (one page)", (n) => fmt(S[n].patients.rows.length)],
+    ["Patients with a type 2 diabetes Condition", (n) => fmt(S[n].diabetes.patients) + star(S[n].diabetes.capped)],
+    ["Patients with an HbA1c Observation", (n) => fmt(S[n].hba1c.patients) + star(S[n].hba1c.capped)],
+    ["…of those, any HbA1c ≥ 6.5%", (n) => fmt(S[n].hba1c.patientsHigh) + star(S[n].hba1c.capped)],
+  ];
+  $("compare").innerHTML = `<thead><tr><th></th>${NAMES.map((n) => `<th class="num">${srv(n)}</th>`).join("")}</tr></thead><tbody>` +
+    rows.map(([label, f]) => `<tr><td>${label}</td>${NAMES.map((n) => `<td class="num">${f(n)}</td>`).join("")}</tr>`).join("") + "</tbody>";
+})();
+
+/* ---------- request log ---------- */
+(function requests() {
+  const R = DATA.requests;
+  const kb = R.reduce((a, r) => a + r.kb, 0);
+  const by = (n) => R.filter((r) => r.server === n).length;
+  $("req-stats").innerHTML = [
+    [fmt(R.length), "GET requests"],
+    [fmt(by("hapi")), "to HAPI"],
+    [fmt(by("smart")), "to SMART"],
+    ["0", "POST, PUT or DELETE"],
+    [(kb / 1024).toFixed(1) + " MB", "of raw JSON cached"],
+  ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
+
+  function describe(r) {
+    if (r.resourceType === "CapabilityStatement") return `CapabilityStatement · ${r.kb >= 1024 ? (r.kb / 1024).toFixed(1) + " MB" : r.kb + " KB"}`;
+    if (r.resourceType === "Bundle") return `Bundle · ${r.entries} entries${r.hasNext ? " · has next page" : " · last page"}`;
+    return r.resourceType || "?";
+  }
+  function render(filter) {
+    const rows = R.filter((r) => filter === "all" || r.server === filter);
+    $("log").innerHTML = rows.map((r) => `
+      <div class="req" role="listitem" tabindex="0" data-n="${r.n}">
+        <span class="n">#${r.n}</span><span class="t">${r.time}</span>${srv(r.server)}
+        <span class="p" title="${esc(r.path)}">${esc(r.path.startsWith("?") ? "/" + r.path : r.path)}</span>
+        <span class="res">${esc(describe(r))}</span>
+      </div>`).join("");
+  }
+  $("log").addEventListener("click", toggle);
+  $("log").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(e); } });
+  function toggle(e) {
+    const row = e.target.closest(".req"); if (!row) return;
+    const open = row.querySelector(".detail");
+    if (open) { open.remove(); return; }
+    const r = R.find((x) => x.n === +row.dataset.n);
+    const d = document.createElement("div");
+    d.className = "detail";
+    const paging = r.path.includes("_getpages") ? "<span>This is a “next” link the server handed us. It points to a server-side cursor, not a page number.</span>" : "";
+    d.innerHTML = `<span>GET <code>${esc(r.url)}</code></span><span>Response: ${esc(describe(r))} · ${r.kb} KB saved to cache/${r.server}/</span>${paging}`;
+    row.appendChild(d);
+  }
+  seg($("req-filter"), [["all", "All"], ["smart", "SMART"], ["hapi", "HAPI"]], "all", render);
+  render("all");
+})();
+
+/* ---------- capability ---------- */
+(function capability() {
+  $("cap-cards").innerHTML = NAMES.map((n) => {
+    const c = S[n].capability;
+    return `<div class="panel">${srv(n)}<dl class="kv">
+      <dt>FHIR version</dt><dd class="mono">${esc(c.fhirVersion)}</dd>
+      <dt>Software</dt><dd>${esc(c.software)}</dd>
+      <dt>Resource types</dt><dd>${c.resource_type_count}</dd>
+      <dt>Base URL</dt><dd class="mono">${esc(S[n].base)}</dd></dl></div>`;
+  }).join("");
+  const USED = { Patient: [], Condition: ["code", "subject"], Observation: ["code", "subject", "value-quantity"] };
+  function render(type) {
+    const a = new Set(S.smart.capability.resources[type].search_params);
+    const b = new Set(S.hapi.capability.resources[type].search_params);
+    const both = [...a].filter((x) => b.has(x)).sort();
+    const hOnly = [...b].filter((x) => !a.has(x)).sort();
+    const sOnly = [...a].filter((x) => !b.has(x)).sort();
+    const chips = (list, cls) => list.length ? list.map((p) => `<span class="chip ${cls} ${USED[type].includes(p) ? "key" : ""}">${esc(p)}</span>`).join("") : '<span class="footnote">None</span>';
+    $("cap-chips").innerHTML = `
+      <div class="chipgroup"><h3>Both servers · ${both.length}</h3><div class="chips">${chips(both, "")}</div></div>
+      <div class="chipgroup"><h3>Only ${srv("hapi")} · ${hOnly.length}</h3><div class="chips" style="--c: var(--hapi)">${chips(hOnly, "only")}</div></div>
+      <div class="chipgroup"><h3>Only ${srv("smart")} · ${sOnly.length}</h3><div class="chips" style="--c: var(--smart)">${chips(sOnly, "only")}</div></div>
+      <p class="footnote">Shaded chips are the parameters this project used. HAPI's extras are mostly cross-cutting ones such as <code>_has</code> (reverse chaining), <code>_filter</code> and <code>_lastUpdated</code>.</p>`;
+  }
+  seg($("cap-type"), [["Patient", "Patient"], ["Condition", "Condition"], ["Observation", "Observation"]], "Observation", render);
+  render("Observation");
+})();
+
+/* ---------- bundle anatomy ---------- */
+(function bundle() {
+  const NOTES = [
+    { key: "resourceType", match: /^  "resourceType": "Bundle"/, text: "A Bundle is itself a resource: a container for other resources." },
+    { key: "type: searchset", match: /^  "type"/, text: "searchset means this Bundle is the answer to a search." },
+    { key: "link · self", match: /"relation": "self"/, text: "The query you asked, as the server understood it." },
+    { key: "link · next", match: /"relation": "next"/, text: "Where the next page lives. Follow this URL exactly. Both servers use an opaque _getpages cursor, not ?page=2, and cursors can expire." },
+    { key: "entry[]", match: /^  "entry"/, text: "One item per result. The real page had 50; two are shown here." },
+    { key: "fullUrl", match: /"fullUrl"/, text: "The permanent address of this resource on the server." },
+    { key: "resource", match: /^      "resource"/, text: "The Patient itself: id, meta, identifier, name, gender, birthDate and more." },
+    { key: "search.mode", match: /"mode": "match"/, text: "match means it matched your search. include would mean it came along with _include." },
+    { key: "no total", match: null, text: "Neither server sent Bundle.total, so you can't tell how many results exist without asking (for example with _summary=count)." },
+  ];
+  let current = "hapi", active = null;
+  function render() {
+    const b = S[current].bundle;
+    const shown = { resourceType: b.resourceType, type: b.type, link: b.link, entry: b.entry };
+    const lines = JSON.stringify(shown, null, 2).split("\n");
+    const hi = (line) => esc(line)
+      .replace(/^(\s*)(&quot;[^&]*?&quot;)(:)/, '$1<span class="k">$2</span>$3')
+      .replace(/(: )(&quot;.*&quot;)(,?)$/, '$1<span class="s">$2</span>$3')
+      .replace(/(: )(-?\d+(\.\d+)?|true|false|null)(,?)$/, '$1<span class="nmb">$2</span>$4');
+    $("bundle-json").innerHTML = lines.map((l, i) => `<span class="ln" data-i="${i}">${hi(l)}</span>`).join("") +
+      `<span class="ln" style="color:var(--ink-3)">  // …${b.entryCount - 2} more entries on the real page</span>`;
+    NOTES.forEach((n) => (n.line = n.match ? lines.findIndex((l) => n.match.test(l)) : -1));
+    $("bundle-notes").innerHTML = NOTES.map((n, i) => `<li><button type="button" data-i="${i}" aria-pressed="${active === i}"><b>${esc(n.key)}</b>${esc(n.text)}</button></li>`).join("");
+    if (active !== null) highlight(active, false);
+  }
+  function highlight(i, scroll = true) {
+    const pre = $("bundle-json");
+    pre.querySelectorAll(".ln.hl").forEach((x) => x.classList.remove("hl"));
+    const n = NOTES[i];
+    if (n.line < 0) return;
+    const el = pre.querySelector(`.ln[data-i="${n.line}"]`);
+    el.classList.add("hl");
+    if (scroll) pre.scrollTo({ top: el.offsetTop - pre.clientHeight / 3, behavior: "smooth" });
+  }
+  $("bundle-notes").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    active = +b.dataset.i;
+    $("bundle-notes").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    highlight(active);
+  });
+  seg($("bundle-srv"), [["hapi", "HAPI"], ["smart", "SMART"]], current, (v) => { current = v; render(); });
+  render();
+})();
+
+/* ---------- horizontal bar chart ---------- */
+function hbars(el, title, subtitle, rows, max, color, unitWord) {
+  const W = 420, rowH = 24, labelW = 150, padR = 40, top = 4;
+  const H = top + rows.length * rowH + 4;
+  const x = (v) => (v / max) * (W - labelW - padR);
+  const bars = rows.map(([label, v], i) => {
+    const y = top + i * rowH;
+    const w = Math.max(x(v), 2);
+    const short = label.length > 24 ? label.slice(0, 23) + "…" : label;
+    const tipText = `${label}: ${fmt(v)} ${unitWord}`;
+    return `<g data-tip="${esc(tipText)}">
+      <rect class="hit" x="0" y="${y}" width="${W}" height="${rowH}"></rect>
+      <text class="lbl" x="${labelW - 8}" y="${y + rowH / 2 + 4}" text-anchor="end">${esc(short)}</text>
+      <rect x="${labelW}" y="${y + 5}" width="${w}" height="${rowH - 10}" rx="3" fill="${color}"></rect>
+      <text class="val" x="${labelW + w + 6}" y="${y + rowH / 2 + 4}">${fmt(v)}</text></g>`;
+  }).join("");
+  el.innerHTML = `<div class="charthead"><h3>${title}</h3><span class="footnote">${subtitle}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title.replace(/<[^>]+>/g, ""))}">${bars}</svg>`;
+}
+
+/* ---------- patients ---------- */
+function drawFields() {
+  for (const n of NAMES) {
+    const rows = S[n].patients.fieldCounts;
+    hbars($(`fields-${n}`), srv(n), `fields present, of ${S[n].patients.rows.length} patients`, rows, S[n].patients.rows.length, cssVar(`--${n}`), "patients have this field");
+  }
+}
+(function patients() {
+  let current = "hapi", gapsOnly = false;
+  function render() {
+    let rows = S[current].patients.rows;
+    if (gapsOnly) rows = rows.filter((r) => !r.gender || !r.birthDate || !r.has_name);
+    const cell = (v) => (v == null || v === "" ? '<span style="color:var(--critical)">missing</span>' : esc(v));
+    $("pt-table").innerHTML = `<thead><tr><th>id</th><th>gender</th><th>birthDate</th><th>has_name</th><th class="num">fields</th></tr></thead><tbody>` +
+      (rows.length ? rows.map((r) => `<tr><td class="mono">${esc(r.id)}</td><td>${cell(r.gender)}</td><td class="mono">${cell(r.birthDate)}</td><td>${r.has_name ? "yes" : '<span style="color:var(--critical)">no</span>'}</td><td class="num">${r.fields}</td></tr>`).join("")
+        : `<tr><td colspan="5" class="footnote">No patients on ${LABEL[current]}'s first page are missing gender, birthDate or a name.</td></tr>`) + "</tbody>";
+  }
+  seg($("pt-srv"), [["hapi", "HAPI"], ["smart", "SMART"]], current, (v) => { current = v; render(); });
+  seg($("pt-gaps"), [["all", "All 50"], ["gaps", "Only rows with gaps"]], "all", (v) => { gapsOnly = v === "gaps"; render(); });
+  render();
+})();
+
+/* ---------- diabetes codes ---------- */
+function drawDisplays() {
+  for (const n of NAMES) {
+    const d = S[n].diabetes;
+    const max = Math.max(...NAMES.flatMap((m) => S[m].diabetes.displays.map((x) => x[1])));
+    hbars($(`disp-${n}`), srv(n), `${d.displays.length} display string${d.displays.length === 1 ? "" : "s"} for one code`, d.displays, max, cssVar(`--${n}`), "codings");
+  }
+}
+(function codes() {
+  $("dm-stats").innerHTML = NAMES.map((n) => {
+    const d = S[n].diabetes;
+    return `<div class="panel stats">${srv(n)}<div class="stat"><b>${fmt(d.patients)}</b><span>distinct patients</span></div>
+      <div class="stat"><b>${fmt(d.conditions)}</b><span>Conditions in ${d.pages} page${d.pages === 1 ? "" : "s"}${d.capped ? ", capped" : ", complete"}</span></div></div>`;
+  }).join("");
+  const sys = S.hapi.diabetes.systems.filter(([s]) => s !== "http://snomed.info/sct");
+  $("dm-systems").innerHTML = `A Condition's <code>code.coding</code> is a list, so one diagnosis can carry codes from several systems. On HAPI, ${sys.map(([s, c]) => `${c} also carry <code>${esc(s)}</code>`).join(" and ")}. Patients are counted through <code>subject.reference</code>, a link like <code>Patient/123</code>.`;
+})();
+
+/* ---------- HbA1c ---------- */
+function drawHist(T) {
+  const W = 640, PH = 120, gapY = 34, L = 40, Rr = 12, top = 18, B = 26;
+  const H = top + PH * 2 + gapY + B;
+  const all = NAMES.flatMap((n) => S[n].hba1c.readings);
+  const lo = Math.floor(Math.min(...all)), hi = Math.ceil(Math.max(...all));
+  const bw = 0.25;
+  const nb = Math.round((hi - lo) / bw);
+  const bins = {};
+  for (const n of NAMES) {
+    bins[n] = new Array(nb).fill(0);
+    for (const v of S[n].hba1c.readings) bins[n][Math.min(nb - 1, Math.floor((v - lo) / bw + 1e-9))]++;
+  }
+  const ymax = Math.max(...NAMES.flatMap((n) => bins[n]));
+  const niceMax = Math.ceil(ymax / 50) * 50;
+  const x = (v) => L + ((v - lo) / (hi - lo)) * (W - L - Rr);
+  let svg = "";
+  NAMES.forEach((n, k) => {
+    const y0 = top + k * (PH + gapY);
+    const y = (c) => y0 + PH - (c / niceMax) * PH;
+    svg += `<text class="lbl" x="${L}" y="${y0 - 6}" font-weight="600">${LABEL[n]}</text>`;
+    for (const t of [0, niceMax / 2, niceMax]) {
+      svg += `<line class="${t ? "grid" : "axis"}" x1="${L}" x2="${W - Rr}" y1="${y(t)}" y2="${y(t)}"></line>`;
+      svg += `<text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t}</text>`;
+    }
+    const color = cssVar(`--${n}`);
+    bins[n].forEach((c, i) => {
+      const a = lo + i * bw, bx = x(a) + 1, w = x(a + bw) - x(a) - 2;
+      const over = a + bw / 2 >= T;
+      if (c > 0) {
+        const h = Math.max((c / niceMax) * PH, 1.5), r = Math.min(2, w / 2, h);
+        const yt = y0 + PH - h;
+        svg += `<path d="M${bx},${y0 + PH} V${yt + r} Q${bx},${yt} ${bx + r},${yt} H${bx + w - r} Q${bx + w},${yt} ${bx + w},${yt + r} V${y0 + PH} Z" fill="${color}" opacity="${over ? 1 : 0.32}"></path>`;
+      }
+      svg += `<rect class="hit" x="${x(a)}" y="${y0}" width="${x(a + bw) - x(a)}" height="${PH}" data-tip="${LABEL[n]} · ${a.toFixed(2)} to ${(a + bw).toFixed(2)}%: ${fmt(c)} readings"></rect>`;
+    });
+    svg += `<line class="thr" x1="${x(T)}" x2="${x(T)}" y1="${y0 - 2}" y2="${y0 + PH}"></line>`;
+  });
+  const yb = top + PH * 2 + gapY;
+  for (let t = lo; t <= hi; t++) svg += `<text x="${x(t)}" y="${yb + 16}" text-anchor="middle">${t}%</text>`;
+  svg += `<text x="${Math.min(x(T) + 6, W - Rr - 60)}" y="${top + 4}" class="lbl" font-weight="600">≥ ${T.toFixed(1)}%</text>`;
+  $("hist").innerHTML = `<div class="charthead"><h3>Usable HbA1c readings, binned by 0.25%</h3><span class="footnote">Full color = at or above the threshold</span></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Histogram of HbA1c readings for SMART and HAPI">${svg}</svg>`;
+}
+function drawReadouts(T) {
+  $("thr-out").textContent = T.toFixed(1) + "%";
+  $("readouts").innerHTML = NAMES.map((n) => {
+    const h = S[n].hba1c;
+    const k = h.perPatientMax.filter((v) => v >= T - 1e-9).length;
+    const tot = h.perPatientMax.length;
+    return `<div class="readout">${srv(n)}<b>${fmt(k)} <span style="font-size:1rem;color:var(--ink-3);font-family:var(--font-body);font-weight:400">of ${fmt(tot)} patients</span></b>
+      <span>${((100 * k) / tot).toFixed(0)}% have at least one reading ≥ ${T.toFixed(1)}%</span></div>`;
+  }).join("");
+}
+(function hba1c() {
+  $("units").innerHTML = NAMES.map((n) => {
+    const h = S[n].hba1c;
+    return `<div class="panel">${srv(n)} <span class="footnote">· ${h.units.length} spelling${h.units.length === 1 ? "" : "s"} across ${fmt(h.observations)} readings</span>
+      <div class="scroll-x"><table style="margin-top:8px"><tbody>${h.units.map(([u, c]) => `<tr><td class="mono" style="font-size:.78rem">${esc(u)}</td><td class="num">${fmt(c)}</td></tr>`).join("")}</tbody></table></div></div>`;
+  }).join("");
+  const ex = NAMES.flatMap((n) => S[n].hba1c.excluded.map((r) => ({ ...r, server: n })));
+  $("excl-sum").textContent = `Readings we excluded or converted (${ex.length})`;
+  $("excl").innerHTML = `<thead><tr><th>server</th><th>Observation</th><th class="num">value</th><th>unit</th><th>status</th></tr></thead><tbody>` +
+    ex.map((r) => `<tr><td>${srv(r.server)}</td><td class="mono" style="font-size:.78rem">${esc(r.id)}</td><td class="num">${(+r.raw_value).toFixed(2)}</td><td class="mono" style="font-size:.75rem">${esc(r.unit)}</td><td>${esc(r.status)}</td></tr>`).join("") + "</tbody>";
+  const thr = $("thr");
+  const update = () => { const T = +thr.value; drawHist(T); drawReadouts(T); };
+  thr.addEventListener("input", update);
+})();
+
+/* ---------- weird ---------- */
+(function weird() {
+  $("weird-list").innerHTML = DATA.weird.map((w, i) => `
+    <article class="panel wcard">
+      <div class="top"><span class="rank">${i + 1}</span><h3>${esc(w.title)}</h3><code>${esc(w.ref)}</code></div>
+      <p class="why">${esc(w.why)}</p>
+      <p class="found">Found with <code>${esc(w.query)}</code></p>
+      <details><summary>Show the raw JSON</summary><pre class="json">${JSON.stringify(w.resource, null, 2).split("\n").map((l) => `<span class="ln">${esc(l)}</span>`).join("")}</pre></details>
+    </article>`).join("");
+})();
+
+/* ---------- outage ---------- */
+(function outage() {
+  const firstSmart = DATA.requests.find((r) => r.server === "smart");
+  const steps = [
+    ["fail", "Step 2, /metadata", "httpx gave up after 30 s. curl waited 60 s: DNS, TCP and TLS all succeeded in about 0.25 s, then <strong>0 bytes</strong> came back."],
+    ["fail", "Steps 3 and 4", "One check before each step, 30 s timeout, no response."],
+    ["fail", "Step 5", "A run sat on an open SMART connection for over 5 minutes. A curl test told to stop after 20 s ran for <strong>251 s</strong> and received nothing, so even curl's own time limit did not take effect on time."],
+    ["fail", "Steps 6 and 8", "Checked under a hard 35 s kill timer. Still no response."],
+    ["ok", `Recovered${firstSmart ? " at " + firstSmart.time : ""}`, "<code>/metadata</code> answered HTTP 200 in 0.6 s with 680 KB. All SMART data on this page comes from the 23 requests that followed."],
+  ];
+  $("timeline").innerHTML = steps.map(([k, t, d]) => `<li><span class="dot ${k}" aria-label="${k === "ok" ? "succeeded" : "failed"}">${k === "ok" ? "✓" : "×"}</span><div class="what"><strong>${t}.</strong> ${d}</div></li>`).join("");
+})();
+
+$("foot").innerHTML = `Generated ${DATA.generated} from ${DATA.requests.length} cached GET responses by <code>python -m fhirlearn.report</code>. No FHIR client library, no backend: the data is embedded in this page.`;
+
+/* ---------- section highlight in the bar ---------- */
+const links = [...document.querySelectorAll(".bar a")];
+const io = new IntersectionObserver((es) => es.forEach((e) => {
+  if (e.isIntersecting) links.forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id));
+}), { rootMargin: "-45% 0px -50% 0px" });
+document.querySelectorAll("#summary, main section").forEach((s) => io.observe(s));
+
+/* ---------- draw theme-dependent charts, redraw on theme change ---------- */
+function drawAll() { drawFields(); drawDisplays(); drawHist(+$("thr").value); drawReadouts(+$("thr").value); }
+drawAll();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+new MutationObserver(drawAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
+</body>
+</html>
