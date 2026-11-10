@@ -74,3 +74,8 @@ Raw notes for the Medium post: things that surprised me or broke, in the order I
 - **No dangling patient references** (0 of 1,000 checked). HAPI enforces referential integrity on write, but not required fields (`Condition/23936` has no subject) or valid dates (`0000-12-24`). So it checks that the links between records are valid, but not the contents of each record.
 - Patient `166997` has a masked Chinese name (`林○○`) and a real-looking Taichung street address and mobile number. Possibly real-ish data uploaded to a public server. I deliberately left it out of weird.md.
 - Pop culture on the test server: Worf (born 2340), Jesus Christ (born 0000-12-24), plus German "Max Musterman", the German equivalent of "John Doe".
+
+## Step 8: README
+
+- SMART checked a sixth and final time on 2026-11-10: still no response. The whole project ran HAPI-only. For the article, "the server you planned around may simply not answer" is a genuine lesson about public test infrastructure.
+- Total footprint on HAPI: about 50 GET requests across all steps, all cached locally.

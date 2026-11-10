@@ -1,17 +1,81 @@
 # what-the-fhir
 
-A small, read-only Python project that explores two public FHIR R4 test servers using plain REST calls (no FHIR client library):
+A small, **read-only** Python project that explores two public FHIR R4 test servers using plain REST calls and raw JSON. There's no FHIR client library, so every request is a visible `GET`.
 
 - SMART: https://r4.smarthealthit.org
 - HAPI: https://hapi.fhir.org/baseR4
 
-Work in progress. Full README comes at the end.
+It was written while learning FHIR, as material for a Medium post. [`NOTES.md`](NOTES.md) has the raw notes on what surprised me or broke along the way.
 
-## Setup
+## What it does
+
+| Step | Module | Request(s) | What you get |
+|---|---|---|---|
+| 2 | `fhirlearn.capability` | `GET /metadata` | FHIR version, plus the interactions and search parameters for Patient, Condition and Observation |
+| 3 | `fhirlearn.patients` | `GET /Patient?_count=50` | The Bundle structure, Patient fields, and a DataFrame (`id, gender, birthDate, has_name`) |
+| 4 | `fhirlearn.search` | `GET /Condition?code=http://snomed.info/sct\|44054006` | Type 2 diabetes Conditions, paged, with distinct patients counted via `subject` |
+| 5 | `fhirlearn.labs` | `GET /Observation?code=http://loinc.org\|4548-4` | HbA1c readings with units normalized (% and mmol/mol), and patients with a reading ≥ 6.5% |
+| 6 | `fhirlearn.compare` | (reuses steps 3–5) | [`article_assets/comparison.md`](article_assets/comparison.md) |
+| 7 | `fhirlearn.weird` | `:missing` / `birthdate=gt…` probes, `Patient?_id=…` lookups | [`article_assets/weird.md`](article_assets/weird.md) |
+
+## How to run
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-pytest
+
+pytest                                 # offline tests, no network
+
+python -m fhirlearn.capability         # step 2
+python -m fhirlearn.patients           # step 3
+python -m fhirlearn.search             # step 4
+python -m fhirlearn.labs               # step 5
+python -m fhirlearn.compare            # step 6 -> article_assets/comparison.md
+python -m fhirlearn.weird              # step 7 (HAPI only)
 ```
+
+Skip a server that is down:
+
+```bash
+FHIRLEARN_SERVERS=hapi python -m fhirlearn.compare
+```
+
+### Being polite to public servers
+
+All requests go through `fhirlearn.client.FhirClient`, which:
+
+- only sends `GET` (there is no method for anything else),
+- asks for small pages (`_count=50`) and follows at most **20 pages** per search,
+- sleeps 1 second before each real request and uses a 30-second timeout,
+- caches every raw response in `cache/<server>/` (gitignored), so reruns don't touch the server.
+
+To fetch fresh data, delete `cache/`. Note that HAPI's "next" links are temporary server cursors, so an old cached run and a new run may not line up page for page.
+
+## Results
+
+From the run on 2026-11-10:
+
+| | SMART | HAPI |
+|---|---:|---:|
+| Patients sampled (1 page of `Patient`) | n/a | 50 |
+| Patients with a type 2 diabetes Condition (SNOMED 44054006) | n/a | 154 |
+| Patients with an HbA1c Observation (LOINC 4548-4) | n/a | 888* |
+| …of those, with any HbA1c ≥ 6.5% | n/a | 309* |
+
+\* Hit the 20-page cap: more results exist on the server. Each row is its own query, so the rows are not subsets of each other.
+
+**SMART was unreachable during the whole session.** TCP and TLS connected, but no response ever came back, so its column is `n/a` rather than numbers from somewhere else. Once it's back, run `python -m fhirlearn.compare` with no environment variable to fill it in.
+
+Highlights from [`weird.md`](article_assets/weird.md): a patient born in 2340, a patient born in year 0000, a Condition with no content at all, an HbA1c of 112%, and HL7 v2 markup leaking into a phone number.
+
+## Limitations
+
+- **Public test data.** Both servers hold synthetic or demo data that anyone can write to (HAPI's `/metadata` advertises create, update and delete). Nothing here says anything about real patients or real prevalence.
+- **Counts are samples, not totals.** The 20-page cap stops a search at 1,000 results, and HAPI doesn't return `Bundle.total`. Rows marked `*` were cut off.
+- **Data changes.** HAPI seems to be wiped and reloaded from time to time (all sampled patients were last updated within 20 seconds on 2026-09-25), and people write to it constantly. Rerunning without the cache will give different numbers.
+- **"Patients sampled" is one page.** It's the first 50 Patients the server returned, not a random sample.
+- **One code per concept.** Diabetes is matched only on SNOMED `44054006`, and HbA1c only on LOINC `4548-4`. Records coded with ICD-10 only, with other HbA1c LOINC codes (e.g. `17856-6`), or with free text only are missed.
+- **HbA1c cleaning is deliberately simple.** `%` and `percent` are accepted, mmol/mol is converted (`% = 0.09148 × mmol/mol + 2.152`), and anything labeled % but outside 3–20 is flagged and excluded, not "fixed". A patient counts as ≥ 6.5% if *any* usable reading reaches it.
+- **Reference check is partial.** Step 7 checked 1,000 of the 1,031 referenced patients before reaching the request cap.
+- **SMART results are missing** because the server was down; see above.
