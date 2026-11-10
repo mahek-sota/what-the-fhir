@@ -6,7 +6,12 @@ the data is injected as one JSON blob, so the page needs no backend.
 
 from __future__ import annotations
 
+import argparse
+import base64
+import gzip
+import hashlib
 import json
+import re
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +25,7 @@ from fhirlearn.search import T2DM, fetch_all, subject_patient_ids
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = Path(__file__).with_name("report_template.html")
 OUT = ROOT / "article_assets" / "report.html"
+VERSIONS = ROOT / "article_assets" / "report_versions.json"
 PLACEHOLDER = "/*__REPORT_DATA__*/null"
 
 
@@ -189,15 +195,114 @@ def build() -> dict:
     }
 
 
-def main() -> None:
-    data = build()
+def sha(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:12]
+
+
+def update_history(history: list[dict], data_hash: str, layout_hash: str, fetched: str,
+                   note: str | None, now: str) -> tuple[list[dict], dict, bool]:
+    """Add a version when the data or the layout changed since the last one.
+
+    Returns (history, current version, whether a new version was added).
+    Rebuilding with nothing changed keeps the current version.
+    """
+    last = history[-1] if history else None
+    changes = []
+    if last is None or last["data_hash"] != data_hash:
+        changes.append("data")
+    if last is None or last["layout_hash"] != layout_hash:
+        changes.append("layout")
+    if last is not None and not changes:
+        return history, last, False
+    default_note = {
+        ("data", "layout"): "First version" if last is None else "Data refreshed and layout updated",
+        ("data",): "Data refreshed",
+        ("layout",): "Layout updated",
+    }[tuple(changes)]
+    entry = {
+        "version": len(history) + 1,
+        "built": now,
+        "fetched": fetched,
+        "changes": changes,
+        "note": note or default_note,
+        "data_hash": data_hash,
+        "layout_hash": layout_hash,
+    }
+    return [*history, entry], entry, True
+
+
+def pack(html: str) -> str:
+    """gzip + base64, so a whole past report fits in a JSON string (about a quarter of its size)."""
+    return base64.b64encode(gzip.compress(html.encode(), mtime=0)).decode()
+
+
+def unpack(packed: str) -> str:
+    return gzip.decompress(base64.b64decode(packed)).decode()
+
+
+def render(template: str, data: dict) -> str:
     blob = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
-    html = TEMPLATE.read_text()
-    if PLACEHOLDER not in html:
+    return template.replace(PLACEHOLDER, blob)
+
+
+def version_of(html: str) -> int | None:
+    m = re.search(r'"version":\{"version":(\d+)', html)
+    return int(m.group(1)) if m else None
+
+
+def public(entry: dict) -> dict:
+    """What the page shows about a version: no hashes, no snapshot payload."""
+    out = {k: v for k, v in entry.items() if not k.endswith("_hash") and k != "snapshot"}
+    out["archived"] = bool(entry.get("snapshot"))
+    return out
+
+
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description="Build article_assets/report.html from cache/.")
+    ap.add_argument("--note", help="what changed in this version (shown in the report's version history)")
+    args = ap.parse_args(argv)
+
+    data = build()
+    template = TEMPLATE.read_text()
+    if PLACEHOLDER not in template:
         raise SystemExit(f"placeholder {PLACEHOLDER!r} missing from {TEMPLATE.name}")
-    OUT.write_text(html.replace(PLACEHOLDER, blob))
+
+    data_hash = sha(json.dumps({k: v for k, v in data.items() if k != "generated"}, sort_keys=True))
+    history = json.loads(VERSIONS.read_text()) if VERSIONS.exists() else []
+    prev_last = history[-1] if history else None
+    history, current, added = update_history(
+        history, data_hash, sha(template), data["fetched"], args.note, datetime.now().strftime("%Y-%m-%d %H:%M"))
+    dirty = added
+
+    # A version built before archiving existed has no snapshot. If report.html on disk is that
+    # version, archive it before it is overwritten.
+    if added and prev_last and not prev_last.get("snapshot") and OUT.exists():
+        on_disk = OUT.read_text()
+        if version_of(on_disk) == prev_last["version"]:
+            prev_last["snapshot"] = pack(on_disk)
+
+    # Render this version on its own (no archive inside, so snapshots never nest) and keep it.
+    data["version"] = public(current)
+    data["versions"] = [public(h) for h in reversed(history)]
+    data["archive"] = {}
+    if not current.get("snapshot"):
+        current["snapshot"] = pack(render(template, data))
+        dirty = True
+    data["versions"] = [public(h) for h in reversed(history)]
+
+    # The published page carries every earlier version, compressed.
+    data["archive"] = {str(h["version"]): h["snapshot"] for h in history
+                       if h.get("snapshot") and h["version"] != current["version"]}
+    OUT.write_text(render(template, data))
+    if dirty:
+        VERSIONS.write_text(json.dumps(history, indent=1) + "\n")
+    elif args.note:
+        print("note ignored: nothing changed since the last version")
+
+    status = f"new version v{current['version']} ({', '.join(current['changes'])} changed)" if added \
+        else f"no changes, still v{current['version']}"
     print(f"wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size / 1024:.0f} KB, "
-          f"{len(data['requests'])} requests summarized, 0 network calls)")
+          f"{len(data['archive'])} earlier version(s) embedded): {status}")
 
 
 if __name__ == "__main__":

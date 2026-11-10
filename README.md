@@ -49,8 +49,18 @@ rm -rf cache/hapi cache/smart        # throw away the old responses
 python -m fhirlearn.capability       # re-fetch /metadata
 python -m fhirlearn.compare          # re-fetch steps 3-5, rewrites comparison.md
 python -m fhirlearn.weird            # re-run the weirdness probes
-python -m fhirlearn.report           # rebuild report.html from the new cache
+python -m fhirlearn.report --note "December refresh"   # rebuild report.html from the new cache
 ```
+
+### Report versions
+
+The report shows its version at the top (for example `v2 · 2026-12-01`) and lists every version in a "Report versions" section at the bottom. The history lives in `article_assets/report_versions.json`; commit it with the report.
+
+- Each `python -m fhirlearn.report` run checks whether the **data** (the fetched results) or the **layout** (`report_template.html`) changed since the last version. If either did, it records the next version number.
+- Rebuilding with nothing changed keeps the current version, so you can rerun it freely.
+- `--note "..."` describes the change in the history. Without it you get a default such as "Data refreshed" or "Layout updated".
+- **Past versions live inside `report.html`.** Each version is stored compressed (about 50 KB each) and embedded in the latest page. In the "Report versions" table, **Open vN** shows that version in a new browser tab, exactly as it was built, with a banner marking it as archived. There are no separate per-version files.
+- `report_versions.json` keeps the same compressed copies so the next build can carry them forward. Don't delete it, or the archive starts over.
 
 Some parts won't update on their own:
 

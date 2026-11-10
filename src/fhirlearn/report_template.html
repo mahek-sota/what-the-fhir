@@ -74,10 +74,17 @@ p { margin: 0; }
 
 /* sticky section bar */
 .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
-.bar nav { display: flex; gap: 4px; overflow-x: auto; padding-block: 8px; scrollbar-width: none; }
+.bar .wrap { display: flex; align-items: center; gap: 12px; }
+.bar nav { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; padding-block: 8px; scrollbar-width: none; }
 .bar nav::-webkit-scrollbar { display: none; }
 .bar a { flex: none; text-decoration: none; color: var(--ink-2); font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; }
 .bar a:hover, .bar a.on { background: var(--accent-soft); color: var(--ink); }
+.bar a.ver { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500; color: var(--ink); border: 1px solid var(--line); background: var(--surface); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bar a.ver:hover { border-color: var(--accent); }
+.vtag { font-family: var(--font-mono); font-size: 0.75rem; padding: 1px 7px; border-radius: 999px; background: var(--sunken); color: var(--ink-2); margin-right: 4px; }
+tr.current td { background: var(--accent-soft); }
+.open-ver { font: inherit; font-size: 0.82rem; font-weight: 500; color: var(--accent); background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+.open-ver:hover { background: var(--accent-soft); }
 
 header.hero { padding-block: 56px 32px; display: grid; gap: 18px; }
 .hero .lede { font-size: 1.15rem; color: var(--ink-2); max-width: 60ch; }
@@ -223,7 +230,9 @@ html { scroll-behavior: smooth; scroll-padding-top: 56px; }
       <a href="#weird">Weird data</a>
       <a href="#outage">Outage</a>
       <a href="#limits">Limits</a>
+      <a href="#versions">Versions</a>
     </nav>
+    <a class="ver" id="ver-badge" href="#versions" title="Report version: see the version history"></a>
   </div>
 </div>
 
@@ -236,6 +245,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 56px; }
       <span class="srv smart">SMART</span><a href="https://r4.smarthealthit.org">r4.smarthealthit.org</a>
       <span class="srv hapi">HAPI</span><a href="https://hapi.fhir.org/baseR4">hapi.fhir.org/baseR4</a>
       <span id="h-date"></span>
+      <span id="h-version"></span>
     </div>
     <div class="panel scroll-x">
       <table class="compare" id="compare"></table>
@@ -406,6 +416,21 @@ html { scroll-behavior: smooth; scroll-padding-top: 56px; }
       <li><strong>"Patients sampled" is one page.</strong> It is the first 50 patients each server returned, not a random sample.</li>
     </ul>
   </section>
+
+  <section id="versions">
+    <div class="head">
+      <p class="eyebrow">article_assets/report_versions.json</p>
+      <h2>Report versions</h2>
+    </div>
+    <div class="prose">
+      <p>Every rebuild with new data or a new layout gets the next version number. Rebuilding with nothing changed keeps the current one. <strong>Data</strong> means the fetched results changed; <strong>layout</strong> means the page itself changed.</p>
+      <p>Earlier versions are stored inside this file, compressed. <strong>Open</strong> shows one in a new browser tab, exactly as it was built.</p>
+    </div>
+    <p class="footnote" id="ver-status" role="status"></p>
+    <div class="panel scroll-x" style="padding: 0;">
+      <table id="ver-table"></table>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -455,6 +480,56 @@ $("h-total").textContent = DATA.requests.length;
 $("h-date").textContent = "Fetched " + DATA.fetched;
 $("snap-date").textContent = DATA.fetched;
 $("snap-date-2").textContent = DATA.fetched;
+(function versions() {
+  const v = DATA.version;
+  $("ver-badge").textContent = `v${v.version} · ${v.built.slice(0, 10)}`;
+  $("h-version").textContent = `Report v${v.version}, built ${v.built}`;
+  const archive = DATA.archive || {};
+  const action = (h) => {
+    if (h.version === v.version) return '<span class="vtag">this page</span>';
+    if (archive[h.version]) return `<button type="button" class="open-ver" data-v="${h.version}">Open v${h.version}</button>`;
+    if (h.version > v.version) return '<span class="footnote">newer</span>';
+    return '<span class="footnote">open from the latest report</span>';
+  };
+  $("ver-table").innerHTML = `<thead><tr><th>Version</th><th>Built</th><th>Data fetched</th><th>Changed</th><th>Note</th><th></th></tr></thead><tbody>` +
+    DATA.versions.map((h) => `<tr class="${h.version === v.version ? "current" : ""}">
+      <td class="mono"><strong>v${h.version}</strong></td>
+      <td class="mono" style="white-space:nowrap">${esc(h.built)}</td>
+      <td class="mono" style="white-space:nowrap">${esc(h.fetched)}</td>
+      <td>${h.changes.map((c) => `<span class="vtag">${esc(c)}</span>`).join("")}</td>
+      <td>${esc(h.note)}</td>
+      <td style="white-space:nowrap">${action(h)}</td></tr>`).join("") + "</tbody>";
+
+  async function unpack(b64) {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return new Response(stream).text();
+  }
+  $("ver-table").addEventListener("click", async (e) => {
+    const b = e.target.closest(".open-ver"); if (!b) return;
+    const n = +b.dataset.v;
+    const status = $("ver-status");
+    // Open the tab during the click itself, so pop-up blockers allow it; fill it once unpacked.
+    const w = window.open("", "_blank");
+    if (!w) { status.textContent = "Your browser blocked the new tab. Allow pop-ups for this page and try again."; return; }
+    if (typeof DecompressionStream === "undefined") {
+      w.close();
+      status.textContent = "This browser can't unpack archived versions. Try a current Chrome, Firefox, Safari or Edge.";
+      return;
+    }
+    try {
+      const html = await unpack(archive[n]);
+      const banner = `<div style="position:sticky;top:0;z-index:50;background:#fff2c2;color:#3d3000;font:14px/1.4 system-ui,sans-serif;padding:8px 16px;border-bottom:1px solid #e0c96b">Archived report v${n}, opened from the latest report (v${v.version}). Its numbers are from the day it was built.</div>`;
+      w.document.open();
+      w.document.write(html.replace(/<body>/i, "<body>" + banner));
+      w.document.close();
+      status.textContent = "";
+    } catch (err) {
+      w.close();
+      status.textContent = `Couldn't open v${n}: ${err.message}`;
+    }
+  });
+})();
 (function compare() {
   const star = (c) => (c ? '<span class="capped">*</span>' : "");
   const rows = [
