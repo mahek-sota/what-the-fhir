@@ -1,0 +1,9 @@
+# Raw FHIR responses cached locally; never commit them.
+cache/*
+!cache/.gitkeep
+
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
