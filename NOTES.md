@@ -63,3 +63,14 @@ Raw notes for the Medium post: things that surprised me or broke, in the order I
 - The table reused the cached responses from steps 3–5 (0 network calls). The cache paid for itself here.
 - Gotcha for readers: "patients sampled" (50) is *smaller* than "diabetes patients" (154). Every row is an independent search, not a funnel. A FHIR search on Condition doesn't need the patients in hand first.
 - An interesting follow-up I didn't do: `Patient?_has:Condition:subject:code=…` (reverse chaining) would ask the server "patients who have a diabetes condition" directly.
+
+## Step 7: Weirdness report
+
+- 25 new requests to HAPI (5 one-page probe searches + 20 batched `_id` lookups). Nothing to SMART.
+- **Let the server find the weirdness.** `name:missing=true`, `code:missing=true`, `subject:missing=true`, `birthdate=gt…` and `birthdate=lt1900-01-01` are all standard FHIR search features (the `:missing` modifier and the `gt`/`lt` prefixes). That's far more efficient than downloading everything and scanning it.
+- My scan of the data I'd already fetched found *nothing* odd (no missing names or bad birth dates in the 50-patient page, no uncoded diabetes conditions, by construction). The weirdness only showed up when I asked for it. Sampling one page tells you very little about a messy dataset.
+- `code:missing=true` matches Conditions that **have** `code.text` but no `coding`. The `:missing` modifier works on what the server *indexes*, not on what the JSON contains.
+- `subject:missing=true` matches Conditions whose subject is an `identifier`, i.e. a reference by ID that has no `reference` URL to follow.
+- **No dangling patient references** (0 of 1,000 checked). HAPI enforces referential integrity on write, but not required fields (`Condition/23936` has no subject) or valid dates (`0000-12-24`). So it checks that the links between records are valid, but not the contents of each record.
+- Patient `166997` has a masked Chinese name (`林○○`) and a real-looking Taichung street address and mobile number. Possibly real-ish data uploaded to a public server. I deliberately left it out of weird.md.
+- Pop culture on the test server: Worf (born 2340), Jesus Christ (born 0000-12-24), plus German "Max Musterman", the German equivalent of "John Doe".
