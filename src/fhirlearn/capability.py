@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from fhirlearn.client import SERVERS, FhirClient
+from fhirlearn.client import active_servers, FhirClient
 
 FOCUS = ("Patient", "Condition", "Observation")
 
@@ -34,7 +34,7 @@ def summarize(cap: dict, focus: tuple[str, ...] = FOCUS) -> dict:
 
 
 def main() -> None:
-    for name in SERVERS:
+    for name in active_servers():
         with FhirClient(name) as c:
             print(f"\n=== {name.upper()}  {c.base_url}")
             try:

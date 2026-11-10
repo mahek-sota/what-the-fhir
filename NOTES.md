@@ -31,3 +31,28 @@ Raw notes for the Medium post: things that surprised me or broke, in the order I
   - no gender, no birthDate
   - Candidate for the weirdness report (step 7).
 - My `has_name()` counts `3015` as named, because `family` is present. Its `text` of "null null" would fool a naive check that only reads `name.text`.
+
+## Step 4: Type 2 diabetes search (Condition?code=http://snomed.info/sct|44054006)
+
+- SMART still down (third check, no response in 30s).
+- HAPI: 4 pages, 159 Conditions, **154 distinct patients**. Didn't hit the 20-page cap, so on this day that's the full result set and not just a sample.
+- **The same SNOMED code has 12 different `display` strings**: "Diabetes mellitus type 2 (disorder)", "Type 2 diabetes mellitus", "Diabetes", "Diabetes melitus tipe 2" (Indonesian), and two with no display at all. Search by `code`, never by display text. The display is only a label for humans and every uploader writes their own.
+- About 30 Conditions carry **both** SNOMED and ICD-10-CM `E11.9` codings in one `CodeableConcept`. That's the point of `coding` being a list: one concept, several code systems. Two use plain ICD-10 (`.../icd-10`), not ICD-10-CM, which is a different system URI for a near-identical code.
+- Condition `97074` has **no `subject` at all**, even though `Condition.subject` is *required* (1..1) in R4. HAPI accepted it anyway. Diabetes, but nobody has it. Weirdness candidate.
+- A patient literally named `example` has 2 diabetes conditions. Also `helasync-test-001`. These are someone's test fixtures living on the shared server.
+- All subject references were relative (`Patient/123`); none were absolute URLs or `urn:uuid:`. My parser handles all three anyway.
+- Unlike the Patient data, these Conditions have `lastUpdated` dates spread after the 2026-09-25 reload (e.g. 2026-10-11), so people are actively writing to HAPI.
+
+## Step 5: HbA1c (Observation?code=http://loinc.org|4548-4)
+
+- **SMART hang, part 2.** One run sat on an open connection to SMART for over 5 minutes despite a 30s httpx timeout. A diagnostic `curl -m 20` then took **251 seconds** and received **0 bytes**, so the server isn't trickling data. Something in the network path hangs, and even curl's wall-clock limit didn't fire on time. I first guessed "slow trickle defeats httpx's per-read timeout". That was wrong, and the curl test disproved it. Fix on our side: `FHIRLEARN_SERVERS=hapi` skips a dead server instead of waiting on it.
+- HAPI: **hit the 20-page cap** (1,000 observations), so these are sample counts, not totals. 888 distinct patients in the sample; 309 have at least one usable reading ≥ 6.5%.
+- Every HbA1c used `valueQuantity` (no `valueString` like "6.8%", no `>` comparators). That's tidier than I expected.
+- **Six different ways to write the unit** for the same test: `%` + UCUM + code `%` (956), `percent` + UCUM + `%` (18), `%` with no system and no code (15), `%` + UCUM + no code (8), `%` + no system + code `%` (1), `mmol/mol` with no system (2). The human `unit` label and the machine `code` are separate fields, and people fill in either, both, or neither.
+- **mmol/mol vs %**: HbA1c has two unit conventions (IFCC mmol/mol, used in UK/EU; NGSP %, used in the US). 48 mmol/mol ≈ 6.5%. Converted with % = 0.09148 × mmol/mol + 2.152. Patient `77057`: 64 mmol/mol → 8.0%.
+- **Impossible values labeled `%`** (excluded, not "fixed"):
+  - `81833`: HbA1c **112%**, UCUM-coded and everything. More than 100% of your hemoglobin is glycated.
+  - `77070`: **85%**. Patient `77065` *also* has a 64 mmol/mol reading. Looks like someone typed mmol/mol numbers into a % field.
+  - 18 observations `obs-lab-ehr-{a,b}-pNNN-d0` all have exactly **45 "percent"**, in mirrored pairs from two pretend EHRs ("ehr-a" and "ehr-b") two days apart. 45 is very plausible as **mmol/mol** (≈ 6.3%), so it's probably a unit bug in someone's EHR-merge test generator.
+- Patient `57525` has 11 readings from 3.03% to 3.12%, slowly creeping up over two years. Under 4% is physiologically very unusual. I kept them, since 3% isn't impossible, but they're clearly synthetic.
+- Design choice for the article: I **flag and exclude** implausible values instead of guessing a conversion. Silently "correcting" lab values is how you get wrong clinical numbers.

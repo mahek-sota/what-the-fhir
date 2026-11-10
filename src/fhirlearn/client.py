@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Iterator
@@ -25,6 +26,18 @@ SERVERS: dict[str, str] = {
     "smart": "https://r4.smarthealthit.org",
     "hapi": "https://hapi.fhir.org/baseR4",
 }
+
+
+
+def active_servers() -> list[str]:
+    """Servers to query. Override with e.g. FHIRLEARN_SERVERS=hapi to skip one that is down."""
+    raw = os.environ.get("FHIRLEARN_SERVERS", "")
+    names = [n.strip() for n in raw.split(",") if n.strip()] or list(SERVERS)
+    unknown = set(names) - set(SERVERS)
+    if unknown:
+        raise ValueError(f"unknown server(s) in FHIRLEARN_SERVERS: {sorted(unknown)}")
+    return names
+
 
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[2] / "cache"
 PAGE_SIZE = 50

@@ -7,7 +7,7 @@ from collections import Counter
 import httpx
 import pandas as pd
 
-from fhirlearn.client import PAGE_SIZE, SERVERS, FhirClient, entries, next_link
+from fhirlearn.client import PAGE_SIZE, active_servers, FhirClient, entries, next_link
 
 
 def has_name(patient: dict) -> bool:
@@ -50,7 +50,7 @@ def fetch_patient_page(client: FhirClient) -> dict:
 
 
 def main() -> None:
-    for name in SERVERS:
+    for name in active_servers():
         with FhirClient(name) as c:
             print(f"\n=== {name.upper()}  GET {c.build_url('Patient', {'_count': PAGE_SIZE})}")
             try:
