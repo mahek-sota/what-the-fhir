@@ -56,3 +56,10 @@ Raw notes for the Medium post: things that surprised me or broke, in the order I
   - 18 observations `obs-lab-ehr-{a,b}-pNNN-d0` all have exactly **45 "percent"**, in mirrored pairs from two pretend EHRs ("ehr-a" and "ehr-b") two days apart. 45 is very plausible as **mmol/mol** (≈ 6.3%), so it's probably a unit bug in someone's EHR-merge test generator.
 - Patient `57525` has 11 readings from 3.03% to 3.12%, slowly creeping up over two years. Under 4% is physiologically very unusual. I kept them, since 3% isn't impossible, but they're clearly synthetic.
 - Design choice for the article: I **flag and exclude** implausible values instead of guessing a conversion. Silently "correcting" lab values is how you get wrong clinical numbers.
+
+## Step 6: Comparison table
+
+- SMART still unreachable (5th check, 2026-11-10, hard-killed at 35s). The SMART column is "n/a". I chose not to fill it with numbers from memory or docs: the table only shows what this code actually fetched.
+- The table reused the cached responses from steps 3–5 (0 network calls). The cache paid for itself here.
+- Gotcha for readers: "patients sampled" (50) is *smaller* than "diabetes patients" (154). Every row is an independent search, not a funnel. A FHIR search on Condition doesn't need the patients in hand first.
+- An interesting follow-up I didn't do: `Patient?_has:Condition:subject:code=…` (reverse chaining) would ask the server "patients who have a diabetes condition" directly.
