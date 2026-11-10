@@ -52,6 +52,24 @@ python -m fhirlearn.weird            # re-run the weirdness probes
 python -m fhirlearn.report --note "December refresh"   # rebuild report.html from the new cache
 ```
 
+### Why `cache/` isn't in the repo
+
+The raw responses (about 8 MB, 74 files) are gitignored on purpose:
+
+- **Public sandboxes hold whatever people upload.** Some HAPI records look like real personal details uploaded by mistake. Committing raw dumps would republish them.
+- **You don't need them to see the results.** `report.html` has every number, chart and example built in.
+
+The catch: a fresh clone can open `report.html` straight away, but to **rebuild** it you must fetch the data yourself, and you'll get whatever the servers hold that day, not the 2026-11-10 snapshot:
+
+```bash
+python -m fhirlearn.capability
+python -m fhirlearn.compare
+python -m fhirlearn.weird
+python -m fhirlearn.report --note "Rebuilt from a fresh fetch"
+```
+
+This makes about 100 polite GET requests, roughly 75 for the steps and 25 for the weirdness probes. If one of the five hand-picked weird records has since been deleted from HAPI, the report build stops with an error naming it; edit `weird_examples()` in `report.py` to choose another.
+
 ### Report versions
 
 The report shows its version at the top (for example `v2 · 2026-12-01`) and lists every version in a "Report versions" section at the bottom. The history lives in `article_assets/report_versions.json`; commit it with the report.
@@ -65,7 +83,7 @@ The report shows its version at the top (for example `v2 · 2026-12-01`) and lis
 Some parts won't update on their own:
 
 - The five weird records are picked by hand in `report.py`. If one has been deleted from HAPI, the report build stops with an error.
-- The weirdness probes compare birth dates against the fixed date 2026-11-10.
+- The weirdness probes compare birth dates against the day you run them, so "born in the future" picks up different records over time.
 - The outage timeline and some captions in the report describe this one session.
 - `weird.md` and the results tables in this README are written by hand. Update them yourself.
 

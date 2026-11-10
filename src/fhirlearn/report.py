@@ -138,11 +138,25 @@ def server_data(name: str) -> dict:
     }
 
 
+def cached_future_probe(name: str = "hapi") -> tuple[str, list[dict]]:
+    """The 'born in the future' probe from weird.py uses the date it ran on, so find it by URL instead of guessing the date."""
+    hits = []
+    for f in (DEFAULT_CACHE_DIR / name).glob("*.json"):
+        raw = json.loads(f.read_text())
+        m = re.search(r"birthdate=gt(\d{4}-\d{2}-\d{2})", raw["url"])
+        if m and "/Patient?" in raw["url"]:
+            hits.append((f.stat().st_mtime, m.group(1), raw["body"]))
+    if not hits:
+        raise RuntimeError("no 'born in the future' probe in cache (run python -m fhirlearn.weird first)")
+    _, day, body = max(hits)
+    return day, entries(body)
+
+
 def weird_examples() -> list[dict]:
     c = CacheOnlyClient("hapi")
-    today = "2026-11-10"
+    probe_day, future = cached_future_probe()
     pools = {
-        "future": entries(c.get("Patient", {"birthdate": f"gt{today}", "_count": PAGE_SIZE})),
+        "future": future,
         "old": entries(c.get("Patient", {"birthdate": "lt1900-01-01", "_count": PAGE_SIZE})),
         "nosubject": entries(c.get("Condition", {"subject:missing": "true", "_count": PAGE_SIZE})),
         "patients": entries(c.get("Patient", {"_count": PAGE_SIZE})),
@@ -154,7 +168,7 @@ def weird_examples() -> list[dict]:
 
     return [
         {"title": "A Klingon born in 2340", "ref": "Patient/470809",
-         "query": f"Patient?birthdate=gt{today}",
+         "query": f"Patient?birthdate=gt{probe_day}",
          "why": "The server accepted a birth date 314 years in the future. FHIR's date type checks the format, not whether the date makes sense.",
          "resource": find("future", "470809")},
         {"title": "Born on Christmas Eve, year zero", "ref": "Patient/470065",
