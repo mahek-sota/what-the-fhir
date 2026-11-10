@@ -58,14 +58,17 @@ From the run on 2026-11-10:
 
 | | SMART | HAPI |
 |---|---:|---:|
-| Patients sampled (1 page of `Patient`) | n/a | 50 |
-| Patients with a type 2 diabetes Condition (SNOMED 44054006) | n/a | 154 |
-| Patients with an HbA1c Observation (LOINC 4548-4) | n/a | 888* |
-| …of those, with any HbA1c ≥ 6.5% | n/a | 309* |
+| FHIR version / software | 4.0.0 / Smile CDR 2019.08.PRE | 4.0.1 / HAPI FHIR 8.13.10-SNAPSHOT |
+| Patients sampled (1 page of `Patient`) | 50 | 50 |
+| Patients with a type 2 diabetes Condition (SNOMED 44054006) | 47 | 154 |
+| Patients with an HbA1c Observation (LOINC 4548-4) | 163* | 888* |
+| …of those, with any HbA1c ≥ 6.5% | 14* | 309* |
 
 \* Hit the 20-page cap: more results exist on the server. Each row is its own query, so the rows are not subsets of each other.
 
-**SMART was unreachable during the whole session.** TCP and TLS connected, but no response ever came back, so its column is `n/a` rather than numbers from somewhere else. Once it's back, run `python -m fhirlearn.compare` with no environment variable to fill it in.
+**SMART was unreachable for most of the session.** TCP and TLS connected, but no response came back for hours. It recovered later the same day, and the SMART column comes from that later run.
+
+The two servers feel very different. SMART holds tidy synthetic (Synthea) patients, where every Patient has the same 13+ fields and every HbA1c uses exactly `%` + UCUM. HAPI is a free-for-all written to by many people, with 6 unit spellings for the same test, missing required fields and impossible values.
 
 Highlights from [`weird.md`](article_assets/weird.md): a patient born in 2340, a patient born in year 0000, a Condition with no content at all, an HbA1c of 112%, and HL7 v2 markup leaking into a phone number.
 
@@ -76,6 +79,6 @@ Highlights from [`weird.md`](article_assets/weird.md): a patient born in 2340, a
 - **Data changes.** HAPI seems to be wiped and reloaded from time to time (all sampled patients were last updated within 20 seconds on 2026-09-25), and people write to it constantly. Rerunning without the cache will give different numbers.
 - **"Patients sampled" is one page.** It's the first 50 Patients the server returned, not a random sample.
 - **One code per concept.** Diabetes is matched only on SNOMED `44054006`, and HbA1c only on LOINC `4548-4`. Records coded with ICD-10 only, with other HbA1c LOINC codes (e.g. `17856-6`), or with free text only are missed.
-- **HbA1c cleaning is deliberately simple.** `%` and `percent` are accepted, mmol/mol is converted (`% = 0.09148 × mmol/mol + 2.152`), and anything labeled % but outside 3–20 is flagged and excluded, not "fixed". A patient counts as ≥ 6.5% if *any* usable reading reaches it.
+- **HbA1c cleaning is deliberately simple.** `%` and `percent` are accepted, mmol/mol is converted (`% = 0.09148 × mmol/mol + 2.152`), and anything labeled % but outside 3–20 is flagged and excluded, not "fixed". That floor excludes 83 of SMART's synthetic readings (2.4–2.9%), which doesn't change its ≥ 6.5% count. A patient counts as ≥ 6.5% if *any* usable reading reaches it.
 - **Reference check is partial.** Step 7 checked 1,000 of the 1,031 referenced patients before reaching the request cap.
-- **SMART results are missing** because the server was down; see above.
+- **A public server can simply not answer.** SMART hung for hours on 2026-11-10. `FHIRLEARN_SERVERS` lets you skip a server, and the cache means a finished run never needs it again.

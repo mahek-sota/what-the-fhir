@@ -79,3 +79,15 @@ Raw notes for the Medium post: things that surprised me or broke, in the order I
 
 - SMART checked a sixth and final time on 2026-11-10: still no response. The whole project ran HAPI-only. For the article, "the server you planned around may simply not answer" is a genuine lesson about public test infrastructure.
 - Total footprint on HAPI: about 50 GET requests across all steps, all cached locally.
+
+## SMART comes back (later on 2026-11-10)
+
+- After hours of hanging, SMART answered `/metadata` in 0.6s (HTTP 200, 680 KB). The outage simply ended; nothing changed on our side.
+- 23 requests to SMART in total: 1 metadata + 22 for compare. HAPI was served entirely from cache.
+- SMART reports **FHIR 4.0.0**, not 4.0.1 like HAPI. That's still R4, but the original release before a technical correction. The software is "Smile CDR 2019.08.PRE", a 2019 *pre-release* build of the commercial HAPI-based server. Both servers advertise 146 resource types.
+- SMART's Patients are Synthea-generated and **uniform**: all 50 have the same fields (text, extension, identifier, name, telecom, gender, birthDate, address, maritalStatus, communication…). HAPI's had 6–10 fields and wild variety. Same standard, very different data.
+- Diabetes: 1 page, 47 Conditions, 47 patients, **one display string** ("Diabetes"), all active. That's the opposite of HAPI's 12 display strings.
+- HbA1c: hit the cap (1,000 readings, but only **163 patients**, a median of 5 readings each, because Synthea simulates years of check-ups). **Every reading uses exactly `%` + UCUM + `%`**. Values have 15 decimal places (`6.207241348070168`), a giveaway that they're simulated.
+- 83 SMART readings are 2.4–2.9%, below my 3% plausibility floor, so they're excluded. Not impossible like HAPI's 112%, just unrealistically low. It doesn't change the ≥ 6.5% count (14 either way).
+- All 14 SMART patients with HbA1c ≥ 6.5% also have a diabetes Condition, and 0 high-HbA1c patients are uncoded. In synthetic data the diagnosis and the lab agree perfectly, which real data almost never does.
+- Comparison row for the article: SMART = consistent, synthetic, boring (in a good way). HAPI = realistic mess, because humans and test scripts write to it.
